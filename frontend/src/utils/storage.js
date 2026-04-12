@@ -1,7 +1,7 @@
 import { generateFakeItems } from '../data/generator';
 
 // Storage keys
-const ITEMS_KEY = 'baddalni_items_v2'
+const ITEMS_KEY = 'baddalni_items_v3'
 const USER_KEY = 'baddalni_user';
 const FAVORITES_KEY = "baddalni_favorites";
 const MESSAGES_KEY = 'baddalni_messages';
@@ -12,7 +12,7 @@ const inferGeneratedItem = (item) => {
     return item;
   }
 
-  const usesDemoImage = typeof item?.image === 'string' && item.image.includes('loremflickr.com/400/300/');
+  const usesDemoImage = typeof item?.image === 'string' && (item.image.includes('loremflickr.com') || item.image.includes('picsum.photos'));
   const hasDemoOwner = GENERATED_OWNERS.has(item?.owner);
 
   return {

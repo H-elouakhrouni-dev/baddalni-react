@@ -3,6 +3,7 @@ import { Heart, MessageCircle, Send, X } from 'lucide-react'
 import { useState } from 'react'
 import { getUser, isFavorite, sendMessage, toggleFavorite } from '../utils/storage'
 import { t } from '../utils/i18n'
+import toast from 'react-hot-toast'
 
 const ItemCard = ({ item }) => {
   const navigate = useNavigate()
@@ -49,7 +50,7 @@ const ItemCard = ({ item }) => {
     sendMessage(item.owner, user.username, messageText.trim(), item.title)
     setMessageText('')
     setShowModal(false)
-    alert(t('messageSentModal') || 'Message Sent to Owner successfully!')
+    toast.success(t('messageSentModal') || 'Message Sent to Owner successfully!')
   }
 
   return (

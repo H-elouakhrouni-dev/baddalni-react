@@ -48,9 +48,9 @@ export const generateFakeItems = () => {
     // Add a bit of randomness to price to make it seem unique
     const randomPrice = itemTpl.price + (Math.floor(Math.random() * 5) * 10);
     
-    // Generate images randomly using loremflickr targeting semantic keywords natively
-    const itemImage = `https://loremflickr.com/400/300/${itemTpl.tag}?random=${i}`;
-    const lookingImage = `https://loremflickr.com/400/300/${lookTpl.tag}?random=${i}`;
+    // Generate images randomly using picsum photos for safe images
+    const itemImage = `https://picsum.photos/seed/item_${itemTpl.tag}_${i}/400/300`;
+    const lookingImage = `https://picsum.photos/seed/look_${lookTpl.tag}_${i}/400/300`;
 
     fakeItems.push({
       id: Date.now() + i,

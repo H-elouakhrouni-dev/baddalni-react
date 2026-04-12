@@ -4,6 +4,7 @@ import { getItems, addComment, getUser, sendMessage } from '../utils/storage'
 import { MapPin, Tag, ArrowLeft, RefreshCw, User, ArrowRightLeft, MessageCircle, Send, X } from 'lucide-react'
 import { t } from '../utils/i18n'
 import { motion } from 'framer-motion'
+import toast from 'react-hot-toast'
 
 const ItemDetails = () => {
   const { id } = useParams()
@@ -38,7 +39,7 @@ const ItemDetails = () => {
     sendMessage(item.owner, user.username, messageText, item.title)
     setShowModal(false)
     setMessageText('')
-    alert(t('messageSentModal') || 'Message Sent to Owner successfully!')
+    toast.success(t('messageSentModal') || 'Message Sent to Owner successfully!')
   }
 
   const handleProposeTradeClick = () => {
@@ -118,7 +119,7 @@ const ItemDetails = () => {
           </div>
 
           <img
-            src={item.lookingForImage || `https://source.unsplash.com/random/400x300/?${item.category},exchange`}
+            src={item.lookingForImage || `https://picsum.photos/seed/${item.category}_exchange/400/300`}
             alt="Target item"
             className="w-full h-80 object-cover opacity-80 border-b border-gray-100 dark:border-gray-700 grayscale-[20%]"
           />
