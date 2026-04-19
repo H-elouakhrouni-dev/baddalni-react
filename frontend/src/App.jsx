@@ -17,14 +17,6 @@ import Inbox from './pages/Inbox'
 
 function App() {
   const location = useLocation()
-  const [backendMessage, setBackendMessage] = useState('')
-
-  useEffect(() => {
-    fetch('http://localhost:8000/api/ping')
-      .then(res => res.json())
-      .then(data => setBackendMessage(data.message))
-      .catch(err => console.error('Failed to connect to backend', err))
-  }, [])
 
   return (
     <div className="min-h-screen transition-colors duration-200 flex flex-col overflow-x-hidden bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans">
@@ -46,13 +38,6 @@ function App() {
       />
       <Navbar />
       
-      {backendMessage && (
-        <div className="bg-green-600 text-white text-center py-2 font-semibold">
-          {backendMessage}
-        </div>
-      )}
-      
-      {/* Container for the page content */}
       <main className="flex-grow container mx-auto px-4 py-8 pt-24">
         <AnimatePresence mode="popLayout" initial={false}>
           <Routes location={location} key={location.pathname}>

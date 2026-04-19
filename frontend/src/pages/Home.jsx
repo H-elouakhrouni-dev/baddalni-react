@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getItems } from '../utils/storage'
+import { getItems } from '../utils/api'
 import ItemCard from '../components/ItemCard'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { t } from '../utils/i18n'
@@ -12,32 +12,38 @@ const Home = () => {
   const [filterCategory, setFilterCategory] = useState('')
   const [sortOrder, setSortOrder] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+  const [loading, setLoading] = useState(true)
   const itemsPerPage = 12
-
-  useEffect(() => {
-    setItems(getItems())
-  }, [])
 
   const cities = ["", "Casablanca", "Rabat", "Marrakech", "Tangier", "Agadir", "Fes", "Meknes"]
   const categories = ["", "Electronics", "Clothing", "Home", "Books", "Sports", "Toys", "Vehicles"]
 
-  const filteredItems = items.filter(item => {
-    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCity = filterCity === '' || item.city === filterCity
-    const matchesCategory = filterCategory === '' || item.category === filterCategory
-    return matchesSearch && matchesCity && matchesCategory
-  })
+  useEffect(() => {
+    fetchItems()
+  }, [currentPage, searchTerm, filterCity, filterCategory, sortOrder])
 
-  const sortedItems = [...filteredItems].sort((a, b) => {
-    if (sortOrder === 'low_to_high') return a.price - b.price
-    if (sortOrder === 'high_to_low') return b.price - a.price
-    return 0
-  })
-
-  const indexOfLastItem = currentPage * itemsPerPage
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentItems = sortedItems.slice(indexOfFirstItem, indexOfLastItem)
-  const totalPages = Math.ceil(sortedItems.length / itemsPerPage)
+  const fetchItems = async () => {
+    setLoading(true)
+    try {
+      const data = await getItems({
+        search: searchTerm,
+        city: filterCity,
+        category: filterCategory,
+        sort: sortOrder,
+        page: currentPage,
+        per_page: itemsPerPage,
+      })
+      setItems(data.data || [])
+      setTotalPages(data.last_page || 1)
+      setTotalItems(data.total || 0)
+    } catch (err) {
+      console.error('Failed to fetch items:', err)
+      setItems([])
+    }
+    setLoading(false)
+  }
 
   const handleFilterChange = () => setCurrentPage(1)
 
@@ -57,17 +63,17 @@ const Home = () => {
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3 }}
     >
-      <div className="bg-blue-50 dark:bg-blue-900/30 rounded-xl p-8 mb-8 text-center border border-blue-100 dark:border-blue-800 transition-colors duration-200">
-        <h1 className="text-3xl md:text-5xl font-bold text-blue-800 dark:text-blue-400 mb-4">
+      <div className="bg-blue-50 dark:bg-blue-900/30 rounded-xl p-5 sm:p-8 mb-6 sm:mb-8 text-center border border-blue-100 dark:border-blue-800 transition-colors duration-200">
+        <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-blue-800 dark:text-blue-400 mb-3 sm:mb-4">
           {t('heroTitle')}
         </h1>
-        <p className="text-gray-600 dark:text-gray-300 max-w-xl mx-auto text-lg">
+        <p className="text-gray-600 dark:text-gray-300 max-w-xl mx-auto text-sm sm:text-lg">
           {t('heroSubtitle')}
         </p>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 mb-8 flex flex-wrap gap-4 transition-colors duration-200">
-        <div className="flex-1 min-w-[200px]">
+      <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700 mb-6 sm:mb-8 flex flex-wrap gap-2 sm:gap-4 transition-colors duration-200">
+        <div className="w-full sm:flex-1 sm:min-w-[200px]">
           <input 
             type="text" 
             placeholder={t('searchPlaceholder')} 
@@ -114,13 +120,22 @@ const Home = () => {
       </div>
 
       <div className="mb-4 flex justify-between items-center text-gray-600 dark:text-gray-400 font-medium">
-        <span>{t('found')} {sortedItems.length} {t('itemsToExchange')}</span>
+        <span>{t('found')} {totalItems} {t('itemsToExchange')}</span>
       </div>
 
-      {currentItems.length > 0 ? (
+      {loading ? (
+        <div className="text-center py-20">
+          <motion.div 
+            animate={{ rotate: 360 }} 
+            transition={{ repeat: Infinity, duration: 1, ease: "linear" }} 
+            className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4"
+          />
+          <p className="text-gray-500 dark:text-gray-400 font-medium">Loading items...</p>
+        </div>
+      ) : items.length > 0 ? (
         <>
           <motion.div variants={containerVars} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {currentItems.map(item => (
+            {items.map(item => (
               <motion.div key={item.id} variants={itemVars}>
                  <ItemCard item={item} />
               </motion.div>

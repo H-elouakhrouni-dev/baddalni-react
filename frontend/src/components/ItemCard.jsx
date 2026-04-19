@@ -1,30 +1,45 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { Heart, MessageCircle, Send, X } from 'lucide-react'
 import { useState } from 'react'
-import { getUser, isFavorite, sendMessage, toggleFavorite } from '../utils/storage'
+import { getUser, toggleFavorite, sendMessage, isLoggedIn } from '../utils/api'
 import { t } from '../utils/i18n'
 import toast from 'react-hot-toast'
+
+const IMG_BASE = 'http://localhost:8000'
 
 const ItemCard = ({ item }) => {
   const navigate = useNavigate()
   const user = getUser()
-  const [favorite, setFavorite] = useState(() => isFavorite(item.id))
+  const [favorite, setFavorite] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [messageText, setMessageText] = useState('')
-  const canMessageOwner = favorite && item.owner && user?.username !== item.owner
 
-  const handleFavoriteClick = (e) => {
+  const ownerName = item.user?.name || item.owner || 'Unknown'
+  const ownerId = item.user?.id || item.user_id
+  const canMessageOwner = user && ownerId && user.id !== ownerId
+
+  const getImageUrl = (path) => {
+    if (!path) return null
+    if (path.startsWith('http')) return path
+    if (path.startsWith('/images/')) return path
+    return `${IMG_BASE}${path}`
+  }
+
+  const handleFavoriteClick = async (e) => {
     e.preventDefault()
     e.stopPropagation()
 
-    const updatedFavorites = toggleFavorite(item.id)
-    const nextFavorite = updatedFavorites.includes(item.id)
+    if (!isLoggedIn()) {
+      navigate('/login')
+      return
+    }
 
-    setFavorite(nextFavorite)
-
-    if (!nextFavorite) {
-      setShowModal(false)
-      setMessageText('')
+    try {
+      const result = await toggleFavorite(item.id)
+      setFavorite(result.favorited)
+      toast.success(result.favorited ? 'Added to favorites!' : 'Removed from favorites')
+    } catch (err) {
+      toast.error('Please log in to favorite items.')
     }
   }
 
@@ -40,17 +55,21 @@ const ItemCard = ({ item }) => {
     setShowModal(true)
   }
 
-  const handleMessageSubmit = (e) => {
+  const handleMessageSubmit = async (e) => {
     e.preventDefault()
 
     if (!messageText.trim() || !user) {
       return
     }
 
-    sendMessage(item.owner, user.username, messageText.trim(), item.title)
-    setMessageText('')
-    setShowModal(false)
-    toast.success(t('messageSentModal') || 'Message Sent to Owner successfully!')
+    try {
+      await sendMessage(ownerId, messageText.trim(), item.id, item.title)
+      setMessageText('')
+      setShowModal(false)
+      toast.success(t('messageSentModal') || 'Message Sent to Owner successfully!')
+    } catch (err) {
+      toast.error(err.message || 'Failed to send message.')
+    }
   }
 
   return (
@@ -58,12 +77,12 @@ const ItemCard = ({ item }) => {
       <Link to={`/item/${item.id}`} className="block h-full cursor-pointer">
         <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700 hover:-translate-y-1 h-full flex flex-col relative group">
           
-          {/* Image Container with Badge */}
           <div className="relative h-48 overflow-hidden bg-gray-100 dark:bg-gray-700">
             <img 
-              src={item.image} 
+              src={getImageUrl(item.image)} 
               alt={item.title} 
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/400x300/e0e7ff/3730a3?text=${encodeURIComponent(item.title)}`; }}
             />
             <div className="absolute top-3 right-3 bg-white/90 dark:bg-gray-900/80 backdrop-blur-sm px-2.5 py-1 rounded-full shadow-sm border border-gray-200 dark:border-gray-700 text-sm font-bold text-blue-700 dark:text-blue-400">
               {item.price} {t('madValue')}
@@ -81,22 +100,21 @@ const ItemCard = ({ item }) => {
             </button>
           </div>
 
-          {/* Content */}
           <div className="p-4 flex flex-col flex-grow">
             <div className="flex justify-between items-start mb-2">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 line-clamp-1">{t(item.title)}</h3>
+              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 line-clamp-1">{item.title}</h3>
             </div>
             
             <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2 flex-grow">
-              {t(item.description)}
+              {item.description}
             </p>
             
             <div className="flex justify-between items-center text-xs font-medium text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-3 mt-auto mb-3">
               <span className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                {t(item.city)}
+                {item.city}
               </span>
               <span className="bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400 px-2 py-1 rounded border border-blue-100 dark:border-blue-800">
-                {t(item.category)}
+                {item.category}
               </span>
             </div>
 
@@ -139,7 +157,7 @@ const ItemCard = ({ item }) => {
 
             <form onSubmit={handleMessageSubmit} className="p-6">
               <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                {t('to') || 'To:'} <b className="text-blue-600 dark:text-blue-400">{item.owner}</b>
+                {t('to') || 'To:'} <b className="text-blue-600 dark:text-blue-400">{ownerName}</b>
               </p>
 
               <textarea

@@ -1,57 +1,102 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { getItems, addComment, getUser, sendMessage } from '../utils/storage'
+import { getItem, addComment, getUser, sendMessage, isLoggedIn } from '../utils/api'
 import { MapPin, Tag, ArrowLeft, RefreshCw, User, ArrowRightLeft, MessageCircle, Send, X } from 'lucide-react'
 import { t } from '../utils/i18n'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 
+const IMG_BASE = 'http://localhost:8000'
+
 const ItemDetails = () => {
   const { id } = useParams()
-  const items = getItems()
-  const item = items.find(i => i.id === parseInt(id))
   const navigate = useNavigate()
-
+  const [item, setItem] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [commentText, setCommentText] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [messageText, setMessageText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const user = getUser()
-  const canMessageOwner = !item?.isGenerated && item?.owner && user?.username !== item.owner
 
-  const handleCommentSubmit = (e) => {
-    e.preventDefault()
-    if (!commentText.trim()) return
+  useEffect(() => {
+    fetchItem()
+  }, [id])
 
-    const newComment = {
-      text: commentText,
-      author: user.username,
-      date: new Date().toLocaleDateString(),
+  const fetchItem = async () => {
+    setLoading(true)
+    try {
+      const data = await getItem(id)
+      setItem(data)
+    } catch (err) {
+      console.error('Failed to fetch item:', err)
+      setItem(null)
     }
-
-    addComment(item.id, newComment)
-    setCommentText('')
-    window.location.reload()
+    setLoading(false)
   }
 
-  const handleSendMessage = (e) => {
+  const getImageUrl = (path) => {
+    if (!path) return null
+    if (path.startsWith('http')) return path
+    if (path.startsWith('/images/')) return path
+    return `${IMG_BASE}${path}`
+  }
+
+  const ownerName = item?.user?.name || 'Unknown'
+  const canMessageOwner = item?.user && user && item.user.id !== user.id
+
+  const handleCommentSubmit = async (e) => {
+    e.preventDefault()
+    if (!commentText.trim() || !isLoggedIn()) return
+    setSubmitting(true)
+
+    try {
+      await addComment(item.id, commentText)
+      setCommentText('')
+      await fetchItem() // Refresh item to get new comment
+      toast.success('Comment posted!')
+    } catch (err) {
+      toast.error(err.message || 'Failed to post comment.')
+    }
+    setSubmitting(false)
+  }
+
+  const handleSendMessage = async (e) => {
     e.preventDefault()
     if (!messageText.trim()) return
-    sendMessage(item.owner, user.username, messageText, item.title)
-    setShowModal(false)
-    setMessageText('')
-    toast.success(t('messageSentModal') || 'Message Sent to Owner successfully!')
+    setSubmitting(true)
+
+    try {
+      await sendMessage(item.user.id, messageText, item.id, item.title)
+      setShowModal(false)
+      setMessageText('')
+      toast.success(t('messageSentModal') || 'Message Sent to Owner successfully!')
+    } catch (err) {
+      toast.error(err.message || 'Failed to send message.')
+    }
+    setSubmitting(false)
   }
 
   const handleProposeTradeClick = () => {
-    if (!canMessageOwner) {
-      return
-    }
-
+    if (!canMessageOwner) return
     if (!user) {
       navigate('/login')
     } else {
       setShowModal(true)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="text-center py-20">
+        <motion.div 
+          animate={{ rotate: 360 }} 
+          transition={{ repeat: Infinity, duration: 1, ease: "linear" }} 
+          className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4"
+        />
+        <p className="text-gray-500 dark:text-gray-400 font-medium">Loading item...</p>
+      </div>
+    )
   }
 
   if (!item) {
@@ -81,29 +126,30 @@ const ItemDetails = () => {
             {t('offeringTitle')}
           </div>
           <img
-            src={item.image}
+            src={getImageUrl(item.image)}
             alt={item.title}
-            className="w-full h-80 object-cover border-b border-gray-100 dark:border-gray-700"
+            className="w-full h-52 sm:h-80 object-cover border-b border-gray-100 dark:border-gray-700"
+            onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x320/e0e7ff/3730a3?text=${encodeURIComponent(item.title)}`; }}
           />
-          <div className="p-6">
-            <div className="flex justify-between items-start mb-4">
-              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{t(item.title)}</h1>
+          <div className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-4">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-100">{item.title}</h1>
               <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 font-bold px-3 py-1 rounded-full whitespace-nowrap text-sm">
                 {item.price} {t('madValue')}
               </span>
             </div>
             <p className="text-gray-600 dark:text-gray-300 mb-6 min-h-[4rem]">
-              {t(item.description)}
+              {item.description}
             </p>
             <div className="space-y-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600">
               <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-                <MapPin className="text-blue-500" size={16} /> <span className="font-medium">{t('locationLabel')}:</span> {t(item.city)}
+                <MapPin className="text-blue-500" size={16} /> <span className="font-medium">{t('locationLabel')}:</span> {item.city}
               </div>
               <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-                <Tag className="text-blue-500" size={16} /> <span className="font-medium">{t('categoryLabel')}:</span> {t(item.category)}
+                <Tag className="text-blue-500" size={16} /> <span className="font-medium">{t('categoryLabel')}:</span> {item.category}
               </div>
               <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-                <User className="text-blue-500" size={16} /> <span className="font-medium">Owner:</span> {item.owner}
+                <User className="text-blue-500" size={16} /> <span className="font-medium">Owner:</span> {ownerName}
               </div>
             </div>
           </div>
@@ -119,14 +165,15 @@ const ItemDetails = () => {
           </div>
 
           <img
-            src={item.lookingForImage || `https://picsum.photos/seed/${item.category}_exchange/400/300`}
+            src={getImageUrl(item.looking_for_image) || `https://placehold.co/600x320/f1f5f9/64748b?text=Looking+For`}
             alt="Target item"
-            className="w-full h-80 object-cover opacity-80 border-b border-gray-100 dark:border-gray-700 grayscale-[20%]"
+            className="w-full h-52 sm:h-80 object-cover opacity-80 border-b border-gray-100 dark:border-gray-700 grayscale-[20%]"
+            onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/600x320/f1f5f9/64748b?text=Looking+For`; }}
           />
           <div className="p-6 flex flex-col flex-grow">
             <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">{t('lookingForTitle')}</h2>
             <p className="text-gray-600 dark:text-gray-300 italic flex-grow">
-              "{t(item.lookingForDesc) || `Looking to exchange this for another item of equivalent value from the ${item.category} category. Open to offers!`}"
+              "{item.looking_for_desc || `Looking to exchange this for another item of equivalent value. Open to offers!`}"
             </p>
           </div>
         </div>
@@ -162,7 +209,11 @@ const ItemDetails = () => {
               onChange={(e) => setCommentText(e.target.value)}
               required
             ></textarea>
-            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg flex items-center gap-2 transition-colors cursor-pointer">
+            <button 
+              type="submit" 
+              disabled={submitting}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg flex items-center gap-2 transition-colors cursor-pointer disabled:bg-gray-400"
+            >
               <Send size={18} /> {t('postComment') || 'Post'}
             </button>
           </form>
@@ -175,15 +226,15 @@ const ItemDetails = () => {
         )}
 
         <div className="space-y-4">
-          {(item.comments || []).map((c, idx) => (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={idx} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-600">
+          {(item.comments || []).map((c) => (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={c.id} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-600">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-700 dark:text-blue-300 font-bold text-sm shadow-inner">
-                  {c.author.charAt(0).toUpperCase()}
+                  {(c.user?.name || 'U').charAt(0).toUpperCase()}
                 </div>
                 <div className="flex flex-col">
-                  <span className="font-bold text-sm text-gray-800 dark:text-gray-200">{c.author}</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">{c.date}</span>
+                  <span className="font-bold text-sm text-gray-800 dark:text-gray-200">{c.user?.name || 'User'}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(c.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
               <p className="text-gray-700 dark:text-gray-300 ml-11">{c.text}</p>
@@ -212,8 +263,8 @@ const ItemDetails = () => {
             </div>
             <form onSubmit={handleSendMessage} className="p-6">
               <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                {t('from') || 'From:'} <b>{user.username}</b> <br />
-                {t('to') || 'To:'} <b className="text-blue-600 dark:text-blue-400">{item.owner}</b>
+                {t('from') || 'From:'} <b>{user.name}</b> <br />
+                {t('to') || 'To:'} <b className="text-blue-600 dark:text-blue-400">{ownerName}</b>
               </p>
               <textarea
                 className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 dark:bg-gray-700 dark:text-white resize-none"
@@ -228,7 +279,11 @@ const ItemDetails = () => {
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold rounded-lg transition-colors cursor-pointer">
                   {t('cancel') || 'Cancel'}
                 </button>
-                <button type="submit" className="flex-[2] px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg flex justify-center items-center gap-2 transition-colors cursor-pointer shadow-md">
+                <button 
+                  type="submit" 
+                  disabled={submitting}
+                  className="flex-[2] px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg flex justify-center items-center gap-2 transition-colors cursor-pointer shadow-md disabled:bg-gray-400"
+                >
                   <Send size={18} /> {t('sendMessage') || 'Send Message'}
                 </button>
               </div>

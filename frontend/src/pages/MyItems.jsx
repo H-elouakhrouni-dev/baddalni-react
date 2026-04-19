@@ -1,34 +1,50 @@
 import { useState, useEffect } from 'react'
-import { getItems, removeItem, getUser } from '../utils/storage'
+import { getItems, removeItem, getUser, isLoggedIn } from '../utils/api'
 import { Link } from 'react-router-dom'
 import ItemCard from '../components/ItemCard'
 import { Trash2, Box, ArrowLeft } from 'lucide-react'
 import { t } from '../utils/i18n'
 import { motion } from 'framer-motion'
+import toast from 'react-hot-toast'
 
 const MyItems = () => {
   const [myItems, setMyItems] = useState([])
+  const [loading, setLoading] = useState(true)
   const user = getUser()
 
   useEffect(() => {
     loadMyItems()
   }, [])
 
-  const loadMyItems = () => {
-    if (!user) return
-    const allItems = getItems()
-    setMyItems(allItems.filter(item => item.owner === user.username))
+  const loadMyItems = async () => {
+    if (!user) {
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    try {
+      const data = await getItems({ user_id: user.id, per_page: 100 })
+      setMyItems(data.data || [])
+    } catch (err) {
+      console.error('Failed to load items:', err)
+    }
+    setLoading(false)
   }
 
-  const handleDelete = (itemId) => {
+  const handleDelete = async (itemId) => {
     const confirmDelete = window.confirm(t('confirmDelete'))
     if (confirmDelete) {
-      removeItem(itemId)
-      loadMyItems()
+      try {
+        await removeItem(itemId)
+        toast.success('Item deleted!')
+        loadMyItems()
+      } catch (err) {
+        toast.error(err.message || 'Failed to delete item.')
+      }
     }
   }
 
-  if (!user) {
+  if (!user || !isLoggedIn()) {
     return (
       <div className="text-center py-20">
         <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-200">{t('pleaseLogin')}</h2>
@@ -65,7 +81,16 @@ const MyItems = () => {
         </div>
       </div>
 
-      {myItems.length > 0 ? (
+      {loading ? (
+        <div className="text-center py-20">
+          <motion.div 
+            animate={{ rotate: 360 }} 
+            transition={{ repeat: Infinity, duration: 1, ease: "linear" }} 
+            className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full mx-auto mb-4"
+          />
+          <p className="text-gray-500 dark:text-gray-400 font-medium">Loading your items...</p>
+        </div>
+      ) : myItems.length > 0 ? (
         <motion.div variants={containerVars} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {myItems.map(item => (
             <motion.div key={item.id} variants={itemVars} className="relative group">

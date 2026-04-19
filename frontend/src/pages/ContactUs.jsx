@@ -30,7 +30,6 @@ const ContactUs = () => {
       <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-100 mb-8 text-center">{t('contact')}</h1>
       
       <div className="grid md:grid-cols-2 gap-12">
-        {/* Contact Info */}
         <div className="space-y-8">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-200">
             <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">{t('getInTouch')}</h2>
@@ -57,7 +56,6 @@ const ContactUs = () => {
           </div>
         </div>
 
-        {/* Contact Form */}
         <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-200">
           {submitted ? (
             <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="h-full flex flex-col items-center justify-center text-center py-10">

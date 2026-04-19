@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID', 'PLACEHOLDER_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET', 'PLACEHOLDER_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT', 'http://localhost:5174'),
+    ],
+
 ];

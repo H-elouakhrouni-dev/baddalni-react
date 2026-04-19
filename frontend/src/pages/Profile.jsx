@@ -1,33 +1,33 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { getUser, updateUser, deleteAccount, logoutUser } from '../utils/storage'
-import { ArrowLeft, User, Save, Trash2, Camera, LogOut } from 'lucide-react'
+import { getUser, updateUser, deleteAccount, logoutUser, isLoggedIn } from '../utils/api'
+import { ArrowLeft, User, Save, Trash2, Camera, LogOut, Mail } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { t } from '../utils/i18n'
+import toast from 'react-hot-toast'
 
 const Profile = () => {
   const navigate = useNavigate()
   const user = getUser()
+  const [saving, setSaving] = useState(false)
 
   const [formData, setFormData] = useState({
-    username: '',
+    name: '',
+    email: '',
     avatar: '',
-    phone: '',
-    bio: ''
   })
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !isLoggedIn()) {
       navigate('/login')
     } else {
       setFormData({
-        username: user.username,
+        name: user.name || '',
+        email: user.email || '',
         avatar: user.avatar || '',
-        phone: user.phone || '',
-        bio: user.bio || ''
       })
     }
-  }, [navigate, user])
+  }, [navigate])
 
   if (!user) return null
 
@@ -38,18 +38,32 @@ const Profile = () => {
     })
   }
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault()
-    updateUser(formData)
-    alert(t('profileSaved') || 'Profile successfully saved!')
+    setSaving(true)
+    try {
+      await updateUser({ name: formData.name, email: formData.email })
+      toast.success(t('profileSaved') || 'Profile successfully saved!')
+    } catch (err) {
+      toast.error(err.message || 'Failed to save profile.')
+    }
+    setSaving(false)
   }
 
-  const handleDeleteAccount = () => {
+  const handleLogout = async () => {
+    await logoutUser()
+    window.location.href = '/'
+  }
+
+  const handleDeleteAccount = async () => {
     const confirmed = window.confirm(t('confirmDeleteAccount') || 'Are you absolutely sure you want to delete your account? All your items on the market will be removed permanently.')
     if (confirmed) {
-      deleteAccount(user.username)
-      navigate('/')
-      window.location.reload()
+      try {
+        await deleteAccount()
+        window.location.href = '/'
+      } catch (err) {
+        toast.error(err.message || 'Failed to delete account.')
+      }
     }
   }
 
@@ -69,15 +83,14 @@ const Profile = () => {
         </div>
         <div className="flex items-center gap-3">
           <User className="text-blue-600" size={32} />
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">{t('myProfile') || 'My Profile'}</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-gray-100">{t('myProfile') || 'My Profile'}</h1>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-8 flex flex-col md:flex-row gap-10">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 sm:p-8 flex flex-col md:flex-row gap-6 sm:gap-10">
         
-        {/* Avatar Section */}
         <div className="flex flex-col items-center gap-4 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 pb-8 md:pb-0 md:pr-10">
-          <div className="relative w-48 h-48 rounded-full border-4 border-blue-100 dark:border-blue-900 overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center shadow-inner">
+          <div className="relative w-32 h-32 sm:w-48 sm:h-48 rounded-full border-4 border-blue-100 dark:border-blue-900 overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center shadow-inner">
             {formData.avatar ? (
               <img src={formData.avatar} alt="Profile Avatar" className="w-full h-full object-cover" />
             ) : (
@@ -85,70 +98,52 @@ const Profile = () => {
             )}
           </div>
           <div className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-2">
-            <Camera size={16} /> {t('previewAvatar') || 'Live Avatar Preview'}
+            <Camera size={16} /> {t('previewAvatar') || 'Profile Avatar'}
           </div>
         </div>
 
-        {/* Form Section */}
         <form onSubmit={handleSave} className="flex-1 space-y-6">
           <div>
-            <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">{t('username')} (Read Only)</label>
+            <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2 flex items-center gap-2">
+              <User size={16} /> Full Name
+            </label>
             <input 
               type="text" 
-              value={formData.username}
-              disabled
-              className="w-full p-4 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 dark:text-gray-400 text-gray-500 cursor-not-allowed font-medium"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="Your full name"
+              className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:text-white transition-colors font-medium"
             />
           </div>
 
           <div>
-            <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">{t('profileAvatarUrl') || 'Profile Image URL'}</label>
+            <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2 flex items-center gap-2">
+              <Mail size={16} /> Email
+            </label>
             <input 
-              type="url" 
-              name="avatar"
-              value={formData.avatar}
+              type="email" 
+              name="email"
+              value={formData.email}
               onChange={handleChange}
-              placeholder="https://example.com/my-picture.jpg"
+              placeholder="you@example.com"
               className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:text-white transition-colors"
             />
-          </div>
-
-          <div>
-            <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">{t('contactPhone') || 'Contact Phone / Email'}</label>
-            <input 
-              type="text" 
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder="06 XX XX XX XX"
-              className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:text-white transition-colors"
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-700 dark:text-gray-300 font-bold mb-2">{t('bio') || 'About Me (Bio)'}</label>
-            <textarea 
-              name="bio"
-              value={formData.bio}
-              onChange={handleChange}
-              rows="4"
-              placeholder="Hi! I live in Casablanca and love exchanging traditional items."
-              className="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 dark:text-white resize-none transition-colors"
-            ></textarea>
           </div>
 
           <div className="pt-6 flex flex-col md:flex-row gap-4 justify-between items-center border-t border-gray-200 dark:border-gray-700 mt-2">
             <button 
               type="submit"
-              className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold py-4 px-10 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-md hover:-translate-y-0.5"
+              disabled={saving}
+              className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-bold py-4 px-10 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-md hover:-translate-y-0.5 disabled:bg-gray-400"
             >
-              <Save size={20} /> {t('saveChanges') || 'Save Profile'}
+              <Save size={20} /> {saving ? 'Saving...' : (t('saveChanges') || 'Save Profile')}
             </button>
             
             <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
               <button 
                 type="button"
-                onClick={() => { logoutUser(); window.location.href = '/'; }}
+                onClick={handleLogout}
                 className="w-full sm:w-auto bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-bold py-3.5 px-6 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-sm"
               >
                 <LogOut size={20} /> {t('logout') || 'Log Out'}

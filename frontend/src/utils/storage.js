@@ -1,7 +1,6 @@
 import { generateFakeItems } from '../data/generator';
 
-// Storage keys
-const ITEMS_KEY = 'baddalni_items_v3'
+const ITEMS_KEY = 'baddalni_items_v5'
 const USER_KEY = 'baddalni_user';
 const FAVORITES_KEY = "baddalni_favorites";
 const MESSAGES_KEY = 'baddalni_messages';
@@ -21,30 +20,21 @@ const inferGeneratedItem = (item) => {
   };
 };
 
-// ========================
-// Items Functions
-// ========================
-
-// Retrieves the list of all items from local storage
 export const getItems = () => {
   let items = localStorage.getItem(ITEMS_KEY);
   if (!items) {
-    // Generate initial items if none exist and save them to local storage
     items = generateFakeItems();
     localStorage.setItem(ITEMS_KEY, JSON.stringify(items));
     return items;
   }
-  // Parse the stored JSON string back to an array
   const parsedItems = JSON.parse(items).map(inferGeneratedItem);
   localStorage.setItem(ITEMS_KEY, JSON.stringify(parsedItems));
   return parsedItems;
 };
 
-// Adds a new item to our local storage
 export const addItem = (newItem) => {
   const items = getItems();
   
-  // Attach current logged-in user if available to mark ownership
   const user = getUser();
   if (user) {
     newItem.owner = user.username;
@@ -52,19 +42,15 @@ export const addItem = (newItem) => {
     newItem.owner = "Anonymous";
   }
 
-  // Generate a random id
   newItem.id = Date.now(); 
   newItem.isGenerated = false;
   
-  // Add to the beginning of the array so it shows up first
   const updatedItems = [newItem, ...items];
   
-  // Save updated list back to localStorage
   localStorage.setItem(ITEMS_KEY, JSON.stringify(updatedItems));
   return updatedItems;
 };
 
-// Removes an item from storage (only if username matches owner, or for simplicity just removes it)
 export const removeItem = (itemId) => {
   const items = getItems();
   const updatedItems = items.filter(i => i.id !== itemId);
@@ -84,14 +70,8 @@ export const addComment = (itemId, commentObj) => {
   return updatedItems;
 };
 
-
-// ========================
-// User Functions
-// ========================
-
-// Fake login: simply stores a username
-export const loginUser = (username) => {
-  const user = { username: username, avatar: '', phone: '', bio: '' };
+export const loginUser = (userObj, token) => {
+  const user = { username: userObj.name, avatar: userObj.avatar, email: userObj.email, bio: '', token: token };
   localStorage.setItem(USER_KEY, JSON.stringify(user));
   return user;
 };
@@ -107,7 +87,6 @@ export const deleteAccount = (username) => {
   logoutUser();
 };
 
-// Get the current logged in user
 export const getUser = () => {
   const userStr = localStorage.getItem(USER_KEY);
   return userStr ? JSON.parse(userStr) : null;
@@ -117,44 +96,29 @@ export const logoutUser = () => {
   localStorage.removeItem(USER_KEY);
 };
 
-
-// ========================
-// Favorites Functions
-// ========================
-
-// Get list of favorite item IDs
 export const getFavorites = () => {
   const favsStr = localStorage.getItem(FAVORITES_KEY);
   return favsStr ? JSON.parse(favsStr) : [];
 };
 
-// Add or remove an item from favorites
 export const toggleFavorite = (itemId) => {
   const favs = getFavorites();
   const index = favs.indexOf(itemId);
   
   if (index === -1) {
-    // If not in array, add it
     favs.push(itemId);
   } else {
-    // If in array, remove it
     favs.splice(index, 1); 
   }
   
-  // Save back to local storage
   localStorage.setItem(FAVORITES_KEY, JSON.stringify(favs));
   return favs;
 };
 
-// Check if a specific item is in the favorites list
 export const isFavorite = (itemId) => {
   const favs = getFavorites();
   return favs.includes(itemId);
 };
-
-// ========================
-// Messages Functions
-// ========================
 
 export const getMessages = (username) => {
   const messagesStr = localStorage.getItem(MESSAGES_KEY);
